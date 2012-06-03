@@ -50,14 +50,12 @@ let s:source = {
 \}
 
 function! s:source.hooks.on_syntax(args, context)
-  syntax match uniteSource__Tag_File /  @.\{-}  /ms=s+2,me=e-2
-              \ containedin=uniteSource__Tag contained 
-              \ nextgroup=uniteSource__Tag_Pat,uniteSource__Tag_Line skipwhite
-  syntax match uniteSource__Tag_Pat /pat:.\{-}\ze\s*$/ contained
-  syntax match uniteSource__Tag_Line /line:.\{-}\ze\s*$/ contained
-  highlight default link uniteSource__Tag_File Type
-  highlight default link uniteSource__Tag_Pat Special
-  highlight default link uniteSource__Tag_Line Constant
+    syntax match uniteSource__Tag_File /  @.\{-}  /ms=s+2,me=e-2 containedin=uniteSource__Tag contained nextgroup=uniteSource__Tag_Pat,uniteSource__Tag_Line skipwhite
+    syntax match uniteSource__Tag_Pat /pat:.\{-}\ze\s*$/ contained
+    syntax match uniteSource__Tag_Line /line:.\{-}\ze\s*$/ contained
+    highlight default link uniteSource__Tag_File Type
+    highlight default link uniteSource__Tag_Pat Special
+    highlight default link uniteSource__Tag_Line Constant
 endfunction
 
 function! s:source.hooks.on_init(args, context)
@@ -86,6 +84,7 @@ function! s:source.gather_candidates(args, context)
 endfunction
 
 function! s:source.async_gather_candidates(args, context)
+    " caching has done
     if empty(a:context.source__continuation)
         let a:context.is_async = 0
         call unite#print_message(
@@ -95,21 +94,21 @@ function! s:source.async_gather_candidates(args, context)
 
     let result = []
     let tagdata = a:context.source__continuation[0]
-    if !has_key(tagdata, 'cont')
-        return []
-    endif
 
     let is_file = self.name ==# 'tag/file'
+    " gather all candidates if 'immediately' flag is set
     if a:context.immediately
         while !empty(tagdata.cont.lines)
             let result += s:next(tagdata, remove(tagdata.cont.lines, 0), is_file)
         endwhile
+    " gather candidates per 0.05s if 'reltime' and 'float' are enable
     elseif has('reltime') && has('float')
         let time = reltime()
         while str2float(reltimestr(reltime(time))) < 0.05
         \       && !empty(tagdata.cont.lines)
             let result += s:next(tagdata, remove(tagdata.cont.lines, 0), is_file)
         endwhile
+    " otherwise, gather candidates per 100 items
     else
         let i = 100
         while 0 < i && !empty(tagdata.cont.lines)
@@ -118,8 +117,8 @@ function! s:source.async_gather_candidates(args, context)
         endwhile
     endif
 
+    " show progress
     call unite#clear_message()
-
     let len = tagdata.cont.lnum
     let progress = (len - len(tagdata.cont.lines)) * 100 / len
     call unite#print_message(
@@ -128,6 +127,7 @@ function! s:source.async_gather_candidates(args, context)
                 \           a:context.source__cont_number, a:context.source__cont_max,
                 \           tagdata.cont.tagfile, progress))
 
+    " when caching has done
     if empty(tagdata.cont.lines)
         let tagfile = tagdata.cont.tagfile
 
@@ -135,6 +135,7 @@ function! s:source.async_gather_candidates(args, context)
         call remove(a:context.source__continuation, 0)
         let a:context.source__cont_number += 1
 
+        " output parse results to file
         call s:write_cache(tagfile)
     endif
 
@@ -217,7 +218,7 @@ function! s:source_include.gather_candidates(args, context)
     return s:pre_filter(result, a:args)
 endfunction
 
-
+" filter defined by unite's parameter (e.g. Unite tag:filter)
 function! s:pre_filter(result, args)
     if !empty(a:args)
         let arg = a:args[0]
@@ -238,7 +239,13 @@ function! s:get_tagdata(tagfile)
     if !filereadable(tagfile)
         return {}
     endif
+
+    " try to read date from cache file
     call s:read_cache(tagfile)
+
+    " set cache structure when:
+    " - cache file is not available
+    " - cache data is expired
     if !has_key(s:cache, tagfile) || s:cache[tagfile].time != getftime(tagfile)
         let lines = readfile(tagfile)
         let s:cache[tagfile] = {
@@ -285,6 +292,7 @@ function! s:next(tagdata, line, is_file)
         let pattern = '\M' . pattern
     endif
 
+    " normalize relative path
     let path = filename =~ '^\%(/\|\a\+:[/\\]\)' ? filename : cont.basedir . '/' . filename
 
     let tag = {
