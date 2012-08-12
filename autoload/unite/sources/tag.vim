@@ -40,7 +40,7 @@ if !isdirectory(s:cache_dir)
 endif
 
 " use vital
-let V = vital#of('unite')
+let V = vital#of('unite.vim')
 let s:C = V.import('System.Cache')
 
 " source
