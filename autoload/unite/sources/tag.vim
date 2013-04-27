@@ -71,7 +71,7 @@ function! s:source.gather_candidates(args, context)
     let a:context.source__continuation = []
     let result = []
     for tagfile in a:context.source__tagfiles
-        let tagdata = s:get_tagdata(tagfile)
+        let tagdata = s:get_tagdata(tagfile, a:context.is_redraw)
         if empty(tagdata)
             continue
         endif
@@ -161,7 +161,7 @@ function! s:source_files.gather_candidates(args, context)
     let a:context.source__continuation = []
     let files = {}
     for tagfile in a:context.source__tagfiles
-        let tagdata = s:get_tagdata(tagfile)
+        let tagdata = s:get_tagdata(tagfile, a:context.is_redraw)
         if empty(tagdata)
             continue
         endif
@@ -206,7 +206,7 @@ function! s:source_include.gather_candidates(args, context)
     let a:context.source__continuation = []
     let result = []
     for tagfile in a:context.source__tagfiles
-        let tagdata = s:get_tagdata(tagfile)
+        let tagdata = s:get_tagdata(tagfile, a:context.is_redraw)
         if empty(tagdata)
             continue
         endif
@@ -238,7 +238,7 @@ function! s:pre_filter(result, args)
     return a:result
 endfunction
 
-function! s:get_tagdata(tagfile)
+function! s:get_tagdata(tagfile, is_reload)
     let tagfile = fnamemodify(a:tagfile, ':p')
     if !filereadable(tagfile)
         return {}
@@ -250,7 +250,7 @@ function! s:get_tagdata(tagfile)
     " set cache structure when:
     " - cache file is not available
     " - cache data is expired
-    if !has_key(s:cache, tagfile) || s:cache[tagfile].time != getftime(tagfile)
+    if a:is_reload || !has_key(s:cache, tagfile)
         let lines = readfile(tagfile)
         let s:cache[tagfile] = {
         \   'time': getftime(tagfile),
